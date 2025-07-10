@@ -1,5 +1,21 @@
+# Rust
 target/
 Cargo.lock
-*.pid
-aeron-all-*.jar
+
+# Aeron
+lib/
+.aeron_archive.pid
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Temporary directories
 /tmp/

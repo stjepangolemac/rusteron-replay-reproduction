@@ -1,102 +1,116 @@
-# Detailed Findings: Aeron Archive Replay Limitation
+# Aeron Archive Replay Issue - Detailed Findings
 
 ## Executive Summary
 
-Aeron Archive has a critical bug where replay stops after reading only 0.008% to 0.17% of recorded data, regardless of configuration or implementation approach.
+Aeron Archive has a critical bug where replay sessions stop prematurely, returning less than 0.2% of recorded messages. This issue is reproducible in both external Java archives and embedded Rust archives.
 
 ## Test Results
 
 ### External Java Archive
-- **Messages Published**: 1,000,000
-- **Messages Replayed**: ~1,700-1,900 (varies between runs)
-- **Replay Efficiency**: ~0.17%
-- **Bytes Replayed**: ~111KB out of 64MB
+- **Messages published**: 1,000,000
+- **Messages replayed**: ~1,700-1,900 (varies per run)
+- **Success rate**: ~0.17%
+- **Data recorded**: 64MB (verified)
+- **Data replayed**: ~111KB
 
-### Embedded Archive (Rust)
-- **Messages Published**: 1,000,000
-- **Messages Replayed**: 79
-- **Replay Efficiency**: 0.008%
-- **Bytes Replayed**: 5,056 bytes out of 64MB
-- **Replay Stop Reason**: "replay aborted"
+### Embedded Rust Archive
+- **Messages published**: 1,000,000
+- **Messages replayed**: ~79
+- **Success rate**: ~0.008%
+- **Data recorded**: 64MB (verified)
+- **Data replayed**: ~5KB
+- **Note**: Embedded performs 20x worse than external!
 
 ## Technical Analysis
 
 ### Message Structure
 Each message in the recording consists of:
-- 32-byte Aeron header
-- 8-byte payload (i64 value)
-- 24-byte padding (alignment to 64 bytes)
+- 32 bytes: Aeron header
+- 8 bytes: Payload (i64 value)
+- 24 bytes: Padding (to align to 64-byte boundary)
 - **Total**: 64 bytes per message
 
 ### Recording Phase (Works Correctly)
-1. All 1,000,000 messages successfully written
-2. Recording size matches expected: 64MB
-3. Recording marked as complete with correct stop position
+1. Archive successfully records all 1,000,000 messages
+2. Recording size matches expectation: 64MB
+3. Recording metadata shows correct start/stop positions
 4. No errors during recording phase
 
 ### Replay Phase (Fails)
-1. Replay starts successfully
-2. Initial messages are delivered correctly (sequential from 0)
-3. Replay stops abruptly:
-   - External: After ~1,700 messages
-   - Embedded: After 79 messages
-4. No error messages in client
-5. Archive logs show replay marked as "INACTIVE" or "aborted"
+1. Replay session starts successfully
+2. Initial messages are received correctly (sequential from 0)
+3. Replay suddenly stops with no more fragments available
+4. Archive logs show replay marked as "INACTIVE" with reason "replay aborted"
+5. No error messages or exceptions thrown
 
 ## Configurations Tested
 
-### Replay Parameters
-- `file_io_max_length`: 1MB, 16MB, 64MB (no difference)
-- `replay_length`: Exact recording length
-- `fragment_limit`: 1,000 to 100,000 (minimal impact)
+### Replay Parameters Varied
+- `file_io_max_length`: 1MB, 16MB, 64MB, 128MB
+- `fragment_limit` in poll(): 1,000 to 100,000
+- Different poll strategies: busy wait, sleep, yield
+- Both handler and iterator approaches
 
-### Polling Strategies
-- Continuous polling with yield
-- Polling with sleep delays
-- Handler-based approach
-- Iterator-based approach
+### Archive Configurations
+- Default term buffer sizes
+- Increased term buffers (up to 64MB)
+- Various MTU sizes (1408, 8192)
+- Different channel endpoints (IPC, UDP)
 
-### Buffer Sizes
-- Default term buffers
-- Increased term buffers (64MB)
-- Various MTU settings
+**Result**: No configuration changes fixed the issue
 
-## Potential Root Causes
+## Key Observations
 
-1. **Internal Replay Position Limit**: Archive may have an undocumented limit on replay position
-2. **Buffer Management Issue**: Replay buffers may not be properly managed for large recordings
-3. **File I/O Constraint**: Despite `file_io_max_length` setting, actual file reads may be limited
-4. **State Machine Bug**: Replay session transitions to INACTIVE prematurely
+1. **Consistent Cutoff**: External archive always stops around 1,700-1,900 messages
+2. **Even Worse Embedded**: Embedded archive stops at just 79 messages
+3. **No Errors**: No exceptions or error logs - replay just stops
+4. **Recording Valid**: Full 64MB recording exists and is valid
+5. **Initial Success**: First messages replay correctly in sequence
+
+## Possible Root Causes
+
+1. **Internal Buffer Limit**: Replay may have hardcoded buffer size limit
+2. **Position Tracking Bug**: Replay position calculation may overflow/wrap
+3. **Resource Cleanup**: Replay resources may be freed prematurely
+4. **State Machine Issue**: Replay session transitions to INACTIVE too early
 
 ## Impact
 
-This bug makes Aeron Archive unsuitable for:
-- Historical data replay
-- Large message stream recording/replay
-- Any use case requiring complete data recovery
+This bug makes Aeron Archive effectively unusable for replaying any substantial amount of data. Applications cannot reliably replay recorded streams, defeating the primary purpose of the archive functionality.
 
-## Workarounds Attempted
+## Reproduction Rate
 
-1. **Chunked Replay**: Tried replaying in smaller chunks - same issue
-2. **Multiple Sessions**: Created new replay sessions - same limit hit
-3. **Different Channels**: Used various channel configurations - no improvement
-4. **Archive Restart**: Restarted archive between record/replay - no effect
+100% - The issue occurs on every single run with the provided examples.
 
-## Recommendations
-
-1. **File a Bug Report**: This appears to be a fundamental issue in Aeron Archive
-2. **Alternative Storage**: Consider alternative storage for large data sets
-3. **Live Processing Only**: Use Aeron for live streaming, not historical replay
-4. **Investigate Java Client**: Test if Java clients exhibit same behavior
-
-## Environment Details
+## Environment
 
 - **OS**: macOS (Darwin 24.5.0)
 - **Rust**: 1.70+
 - **rusteron-archive**: 0.3.5
 - **Aeron**: 1.46.7
-- **Java**: 11+ (for external archive)
+- **Java**: 11+
 
-## Reproduction Steps
+## Recommendations
 
-See README.md for complete reproduction instructions. The issue is 100% reproducible across multiple runs and configurations.
+1. Report this as a critical bug to Aeron project
+2. Test with different Aeron versions to find working version
+3. Examine Aeron source code for replay buffer limits
+4. Consider alternative archiving solutions for production use
+
+## Related Code Locations
+
+The issue likely exists in one of these areas:
+- Aeron Archive replay session management
+- File I/O buffer handling during replay
+- Replay position tracking logic
+- Resource lifecycle management
+
+## Workaround Attempts (All Failed)
+
+1. Increasing all buffer sizes
+2. Slowing down replay consumption
+3. Using different replay strategies
+4. Modifying polling patterns
+5. Changing term buffer configurations
+
+None of these attempts resolved the issue.
