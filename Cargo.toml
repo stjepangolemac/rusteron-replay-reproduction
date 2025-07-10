@@ -1,0 +1,17 @@
+[package]
+name = "rusteron-replay-reproduction"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+anyhow = "1.0"
+rusteron-archive = "0.3"
+rusteron-client = "0.3"
+
+[[bin]]
+name = "external_replay"
+path = "examples/external_replay.rs"
+
+[[bin]]
+name = "embedded_replay"
+path = "examples/embedded_replay.rs"
