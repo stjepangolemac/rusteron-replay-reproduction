@@ -11,10 +11,7 @@ const REPLAY_STREAM_ID: i32 = 17;
 const MESSAGE_COUNT: i64 = 1_000_000;
 
 fn main() -> Result<()> {
-    println!("=== Aeron Archive Replay Issue - External Archive Example ===\n");
-    
-    println!("This example demonstrates that Aeron Archive replay stops prematurely.");
-    println!("We'll publish 1,000,000 messages but only replay a tiny fraction.\n");
+    println!("=== Aeron Archive Replay Test - External Archive ===\n");
     
     println!("Connecting to external archive...");
     println!("  Expected directories:");
@@ -283,7 +280,7 @@ fn main() -> Result<()> {
         println!("\n✓ SUCCESS: All messages replayed correctly!");
         Ok(())
     } else {
-        println!("\n✗ FAILURE: Only replayed {:.2}% of messages!", percentage);
-        anyhow::bail!("Message count or values don't match!")
+        println!("\nExpected {} messages but replayed {} ({:.2}%)", published, final_count, percentage);
+        anyhow::bail!("Unexpected replay count")
     }
 }

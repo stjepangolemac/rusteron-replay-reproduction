@@ -11,10 +11,7 @@ const REPLAY_STREAM_ID: i32 = 17;
 const MESSAGE_COUNT: i64 = 1_000_000;
 
 fn main() -> Result<()> {
-    println!("=== Aeron Archive Replay Issue - Embedded Archive Example ===\n");
-    
-    println!("This example demonstrates the SAME issue using embedded archive.");
-    println!("Embedded archive performs even WORSE than external!\n");
+    println!("=== Aeron Archive Replay Test - Embedded Archive ===\n");
     
     // Use temp directories for embedded archive
     let aeron_dir = "/tmp/embedded_aeron";
@@ -155,7 +152,7 @@ fn main() -> Result<()> {
     println!("  Bytes per message: {}", recording_length / MESSAGE_COUNT);
     
     if recording_length != expected_bytes {
-        println!("  WARNING: Size mismatch!");
+        println!("  Note: Size mismatch");
     }
     
     // Create replay subscription
@@ -299,7 +296,7 @@ fn main() -> Result<()> {
     let percentage = (final_count as f64 / published as f64) * 100.0;
     println!("\nREPLAY EFFICIENCY: {:.2}%", percentage);
     
-    println!("\nNOTE: Embedded archive performs WORSE than external!");
+    println!("\nNote: Embedded archive replayed fewer messages than external");
     println!("External replay: ~0.17% of messages");
     println!("Embedded replay: ~0.008% of messages");
     
@@ -307,7 +304,7 @@ fn main() -> Result<()> {
         println!("\n✓ SUCCESS: All messages replayed correctly!");
         Ok(())
     } else {
-        println!("\n✗ FAILURE: Only replayed {:.2}% of messages!", percentage);
-        anyhow::bail!("Message count or values don't match!")
+        println!("\nExpected {} messages but replayed {} ({:.2}%)", published, final_count, percentage);
+        anyhow::bail!("Unexpected replay count")
     }
 }
