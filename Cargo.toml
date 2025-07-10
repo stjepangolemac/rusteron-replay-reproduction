@@ -7,8 +7,8 @@ edition = "2021"
 
 [dependencies]
 anyhow = "1.0"
-rusteron-archive = "0.1"
-rusteron-client = "0.1"
+rusteron-archive = { version = "0.1", features = ["static", "precompile", "extra-logging", "backtrace"] }
+rusteron-client = { version = "0.1", features = ["static", "precompile", "extra-logging", "backtrace"] }
 
 [[bin]]
 name = "external_replay"

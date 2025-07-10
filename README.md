@@ -54,6 +54,12 @@ Each example:
 - Recording shows expected 64MB file size
 - Same behavior with different buffer sizes and timeouts
 
+## Key Findings
+
+1. **Replay is being aborted**: With `extra-logging` enabled, logs reveal the replay session transitions to `INACTIVE` with `reason="replay aborted"`
+2. **Position tracking**: Replay stops at position ~5KB out of 64MB (< 0.01% of the file)
+3. **Features tested**: Using `static`, `precompile`, `extra-logging`, and `backtrace` features from rusteron does not resolve the issue
+
 ## Detailed Output
 
 See [results.md](results.md) for complete test output.
